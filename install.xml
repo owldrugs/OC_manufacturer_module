@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification>
+    <id>micc</id>
+    <name>Модификатор для изображений,категорий,стран производителя</name>
+    <code>micc</code>
+    <version>1.0.5</version>
+    <author>Owlondrugs</author>
+    <link>Owlondrugsmobile@gmail.com</link>
+    <file path="catalog/view/theme/*/template/product/manufacturer_list.twig">
+        <operation>
+            <search><![CDATA[
+				<p><strong>{{ text_index }}</strong>
+				]]>
+          	</search>
+            <add position="replace" offset="5"><![CDATA[ ]]></add>
+        </operation>
+        <operation>
+            <search><![CDATA[<a href="{{ manufacturer.href }}" class="manufacturer-page-list__name uni-item-bg">{{ manufacturer.name }}</a>]]></search>
+            <add position="replace"><![CDATA[
+                                        {# Category manufacturer #}
+                                        <a href="{{ manufacturer.href }}" class="manufacturer-page-list__name uni-item-bg d-flex align-items-center">
+                                        {% if manufacturer.image and status_img == '1' %}
+                                            <img src="image/{{ manufacturer.image }}" class="img-responsive" width = "64">
+                                        {% else %}
+                                            {{ manufacturer.name }}
+                                        {% endif %}
+                                        </a>
+                                        {# Category manufacturer #}
+            ]]></add>
+        </operation>
+    </file>
+    
+    <file path="catalog/controller/product/manufacturer.php">
+        <operation>
+            <search><![CDATA['href' => $this->url->link('product/manufacturer/info', 'manufacturer_id=' . $result['manufacturer_id'])]]></search>
+            <add position="replace"><![CDATA[
+                        'href' => $this->url->link('product/manufacturer/info', 'manufacturer_id=' . $result['manufacturer_id']),
+                        'image' => $result['image']
+            ]]></add>
+        </operation>
+    </file>
+
+    <file path="catalog/controller/product/manufacturer.php">
+        <operation>
+            <search><![CDATA[$results = $this->model_catalog_manufacturer->getManufacturers();]]></search>
+            <add position="before"><![CDATA[
+        //#Category manufacturer
+        if (isset($this->request->post['micc_status_img'])) {
+            $data['status_img'] = $this->request->post['micc_status_img'];
+        } else {
+            $data['status_img'] = $this->config->get('micc_status_img');
+        }
+        //#Category manufacturer
+            ]]></add>
+        </operation>
+    </file>
+
+    <file path="catalog/controller/product/manufacturer.php">
+        <operation>
+            <search><![CDATA[$manufacturer_info = $this->model_catalog_manufacturer->getManufacturer($manufacturer_id);]]></search>
+            <add position="before"><![CDATA[
+        //#Category manufacturer
+        if (isset($this->request->post['micc_status_cats'])) {
+            $data['status_cats'] = $this->request->post['micc_status_cats'];
+        } else {
+            $data['status_cats'] = $this->config->get('micc_status_cats');
+        }
+        //#Category manufacturer
+            ]]></add>
+        </operation>
+    </file>
+
+	<file path="catalog/view/theme/*/template/product/manufacturer_info.twig">
+        <operation>
+            <search><![CDATA[{% if description and description|length > 15 %}]]></search>
+            <add position="after" offset="9"><![CDATA[
+			{# Category manufacturer #}
+			{% if categories and status_cats == "1" %}
+				<div class="category-list row row-flex">
+					{% for category in categories %}
+						<div class="{{ subcategory_column }} custom_category_grid">
+							<a href="{{ category.href }}" class="category-list__item {{ category.thumb ? 'uni-item' : 'uni-item-bg' }}" title="{{ category.name }}">
+								{% if category.thumb %}
+									<img src="{{ category.thumb }}" alt="{{ category.name }}" title="{{ category.name }}" class="category-list__img img-responsive" width="{{ category_list_img_width }}" height="{{ category_list_img_height }}" />
+								{% endif %}
+								<span class="category-list__name">{{ category.name }}</span>
+							</a>
+						</div>
+					{% endfor %}
+				</div>
+				{% if subcategory_mobile_view == 'select' %}
+					<div class="visible-xs" style="margin:0 0 20px">
+						<select class="form-control" onchange="location = this.value;">
+							<option value="">{{ text_select_category }}</option>
+							{% for category in categories %}
+								<option value="{{ category.href }}">{{ category.name }}</option>
+							{% endfor %}
+						</select>
+					</div>
+				{% endif %}
+			{% endif %}
+			{# Category manufacturer #}			
+			]]></add>
+        </operation>
+    </file>
+	<file path="catalog/controller/product/manufacturer.php">
+        <operation>
+            <search><![CDATA[$data['sort'] = $sort;]]></search>
+            <add position="before"><![CDATA[
+			//#Category manufacturer
+			$categories = $this->model_catalog_manufacturer->getManufacturerCategories($manufacturer_id);
+			$data['categories'] = array();
+			foreach ($categories as $result) {
+				$filter_data = array(
+					'filter_category_id'  => $result['category_id'],
+					'filter_sub_category' => true
+				);
+
+				$data['categories'][] = array(
+					'name' => $result['name'],
+					'href' => $this->url->link('product/category', 'path=' . '_' . $result['category_id'] . $url . "&ocf=".'F1S0V'.$manufacturer_id)
+				);
+			}
+			//#Category manufacturer
+			]]></add>
+        </operation>
+    </file>
+	
+	<file path="catalog/model/catalog/manufacturer.php">
+        <operation>
+            <search><![CDATA[public function getManufacturers($data = array()) {]]></search>
+            <add position="before"><![CDATA[
+	//#Category manufacturer
+	public function getManufacturerCategories($manufacturer_id)
+	{
+		$query = $this->db->query("
+        SELECT
+        DISTINCT c.category_id, cd.name
+        FROM
+        " . DB_PREFIX . "manufacturer m
+        LEFT JOIN " . DB_PREFIX . "product p ON (m.manufacturer_id = p.manufacturer_id)
+        LEFT JOIN " . DB_PREFIX . "product_to_category p2c ON (p2c.product_id = p.product_id)
+        LEFT JOIN " . DB_PREFIX . "category c ON (c.category_id = p2c.category_id)
+        LEFT JOIN " . DB_PREFIX . "category_description cd ON (cd.category_id = c.category_id)
+        WHERE
+        p.status = 1
+        AND m.manufacturer_id = '" . (int) $manufacturer_id . "'
+        AND c.status = 1
+        AND (c.parent_id = 186 OR c.parent_id = 268 OR c.parent_id = 185 OR c.parent_id = 184)
+        ");
+
+		return $query->rows;
+	}
+	//#Category manufacturer
+			]]></add>
+        </operation>
+    </file>
+
+	<file path="catalog/view/theme/*/template/product/manufacturer_info.twig">
+        <operation>
+            <search><![CDATA[{{ content_bottom }}]]></search>
+            <add position="before"><![CDATA[
+            {# Category manufacturer #}
+			{% if zavodInfo %}
+			<div class="contries__container">
+				<h2 class="contries__title">Страны-производители {{ zavodInfo.manufacturer_name }}</h2>
+				<div class="contries__desc">
+					{{ zavodInfo.description }}
+				</div>
+			</div>
+			{% endif %}
+			{# Category manufacturer #}
+            ]]></add>
+        </operation>
+    </file>
+
+    <file path="catalog/controller/product/manufacturer.php">
+        <operation>
+            <search><![CDATA[$this->response->setOutput($this->load->view('product/manufacturer_info', $data));]]></search>
+            <add position="before"><![CDATA[
+        //#Category manufacturer
+		$this->load->model('extension/module/micc');
+
+		$zavodInfo = $this->model_extension_module_micc->getById($manufacturer_id);
+
+		if(strlen($zavodInfo['description'])>5){
+			$data['zavodInfo'] = $zavodInfo;
+		}
+		//#Category manufacturer
+            ]]></add>
+        </operation>
+    </file>
+
+</modification>
